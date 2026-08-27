@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     db_echo: bool = False
 
     model_dir: Path = Path("src/memlord/onnx")
+    # Output dimension of the embedding model. Must match the column type in the
+    # database; the vector-dimension migration keeps the two in sync.
+    embedding_dim: int = Field(384, gt=0)
     host: str = "0.0.0.0"
     port: int = 8000
     base_url: str = "http://localhost:8000"
