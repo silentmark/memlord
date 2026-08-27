@@ -74,7 +74,7 @@ async def hybrid_search(
 
     # Vector KNN via pgvector cosine distance
     vector = await embed(query)
-    vec_param = bindparam("vec", type_=Vector(384))
+    vec_param = bindparam("vec", type_=Vector(settings.embedding_dim))
     distance = Memory.embedding.op("<=>", return_type=Float)(vec_param).label("distance")
     vec_rank = func.row_number().over(order_by=distance).label("vec_rank")
 

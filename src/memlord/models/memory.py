@@ -2,6 +2,8 @@ import sqlalchemy as sa
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 
+from memlord.config import settings
+
 from .base import Base
 
 
@@ -25,7 +27,7 @@ class Memory(Base):
         sa.ForeignKey("workspaces.id", ondelete="CASCADE"),
         nullable=False,
     )
-    embedding = sa.Column(Vector(384), nullable=True)
+    embedding = sa.Column(Vector(settings.embedding_dim), nullable=True)
     search_vector = sa.Column(
         TSVECTOR,
         sa.Computed("to_tsvector('simple', content)", persisted=True),

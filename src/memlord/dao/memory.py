@@ -61,7 +61,7 @@ class MemoryDao:
 
     async def _check_near_duplicate(self, vector: list[float], workspace_id: int) -> None:
         """Raise ValueError if a near-duplicate exists in the workspace."""
-        vec_param = bindparam("vec", type_=Vector(384))
+        vec_param = bindparam("vec", type_=Vector(settings.embedding_dim))
         distance_expr = Memory.embedding.op("<=>", return_type=Float)(vec_param)
         dup_row = (
             (
