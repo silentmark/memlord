@@ -1,6 +1,7 @@
 import asyncio
 from functools import cache
 
+import httpx
 import numpy as np
 from onnxruntime import InferenceSession
 from tokenizers import Tokenizer
@@ -26,6 +27,47 @@ def _split_ids(ids: list[int], window: int = 510, stride: int = 384) -> list[lis
 
 
 async def embed(text: str) -> list[float]:
+    """Embed a single text with the configured provider."""
+    if settings.embedding_provider == "http":
+        return await _embed_http(text)
+    return await _embed_onnx(text)
+
+
+@cache
+def _get_client() -> httpx.AsyncClient:
+    headers = {}
+    if settings.embedding_api_key:
+        headers["Authorization"] = f"Bearer {settings.embedding_api_key}"
+    return httpx.AsyncClient(timeout=settings.embedding_timeout, headers=headers)
+
+
+async def _embed_http(text: str) -> list[float]:
+    """Embed via an OpenAI-compatible /v1/embeddings endpoint.
+
+    Chunking is the server's business here: it owns the tokenizer and the context
+    window, so splitting the text locally would only guess at both.
+    """
+    if not settings.embedding_url:
+        raise RuntimeError("embedding_provider='http' requires embedding_url")
+
+    response = await _get_client().post(
+        settings.embedding_url,
+        json={"input": text, "model": settings.embedding_model},
+    )
+    response.raise_for_status()
+    vector = response.json()["data"][0]["embedding"]
+
+    # A wrong dimension must fail loudly: the column would reject it anyway, and
+    # a silent mismatch between provider and schema is hard to spot afterwards.
+    if len(vector) != settings.embedding_dim:
+        raise RuntimeError(
+            f"embedding endpoint returned {len(vector)} dimensions, "
+            f"expected {settings.embedding_dim}"
+        )
+    return vector
+
+
+async def _embed_onnx(text: str) -> list[float]:
     tokenizer = _get_tokenizer()
     session = _get_session()
 
