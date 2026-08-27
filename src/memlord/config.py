@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     # Output dimension of the embedding model. Must match the column type in the
     # database; the vector-dimension migration keeps the two in sync.
     embedding_dim: int = Field(384, gt=0)
+    # "onnx" runs the bundled model in-process; "http" delegates to an
+    # OpenAI-compatible /v1/embeddings endpoint.
+    embedding_provider: Literal["onnx", "http"] = "onnx"
+    embedding_url: str | None = None
+    embedding_model: str = "default"
+    embedding_api_key: str | None = None
+    embedding_timeout: float = Field(30.0, gt=0)
     host: str = "0.0.0.0"
     port: int = 8000
     base_url: str = "http://localhost:8000"
