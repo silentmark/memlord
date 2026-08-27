@@ -125,25 +125,30 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Image name
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            V="${GITHUB_REF#refs/tags/v}"
+          else
+            V="0.0.0"
+          fi
+          echo "value=$V" >> "$GITHUB_OUTPUT"
+          # Container tags cannot contain '+', so a PEP 440 local version
+          # (0.3.1+custom.1) becomes 0.3.1-custom.1.
+          echo "tag=${V//+/-}" >> "$GITHUB_OUTPUT"
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE }}
+          # The full version only. Truncated semver tags (0.3, 0) would claim the
+          # upstream numbering for an image that is not upstream's, and would be
+          # overwritten by every later build of the same base version.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=${{ steps.version.outputs.tag }},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
-      - name: Resolve version
-        id: version
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "value=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=0.0.0" >> "$GITHUB_OUTPUT"
-          fi
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
