@@ -33,9 +33,21 @@ class Memory(Base):
         sa.Computed("to_tsvector('simple', content)", persisted=True),
         nullable=False,
     )
+    # Uniqueness of `content` is enforced through this digest, not through the
+    # column itself: a btree index row cannot exceed 1/3 of a buffer page, so a
+    # unique index directly on `content` rejects any memory longer than ~2.7 kB
+    # with `index row size N exceeds btree version 4 maximum 2704`. The write
+    # fails outright, which makes long memories unstorable rather than slow.
+    content_md5 = sa.Column(
+        sa.Text,
+        sa.Computed("md5(content)", persisted=True),
+        nullable=False,
+    )
 
     __table_args__ = (
-        sa.UniqueConstraint("content", "workspace_id", name="uq_memories_content_workspace"),
+        sa.UniqueConstraint(
+            "content_md5", "workspace_id", name="uq_memories_content_workspace"
+        ),
         sa.UniqueConstraint("name", "workspace_id", name="uq_memories_name_workspace"),
         sa.Index("ix_memories_search_vector", "search_vector", postgresql_using="gin"),
         sa.Index(

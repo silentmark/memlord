@@ -13,9 +13,16 @@ always be rebased onto a fresh release.
 | `feat(migrations): resize embedding column to configured dimension` | One revision on top of the upstream head. Rewrites `memories.embedding` when the configured dimension differs from what the database has, and rebuilds the HNSW index around it. A no-op at the default 384, so `alembic-autogen-check` stays green. |
 | `ci: build from the default branch and tag images with the full local version` | Keeps the container build working in a fork: the image job triggers on the default branch instead of a hardcoded `main`, PyPI publishing is left to the canonical repository, and the build is amd64-only. It also publishes `X.Y.Z-custom.N` instead of truncated semver tags — `{{version}}`/`{{major}}.{{minor}}` dropped the local part, so a fork build claimed the upstream numbering and every later build of the same base version overwrote it. |
 | `docs: fork notes` | This file. |
+| `fix(models): enforce content uniqueness through a digest` | A unique index on `content` itself caps every memory at roughly 2.7 kB — a btree index row cannot exceed 1/3 of a buffer page, so longer writes are refused outright with `index row size N exceeds btree version 4 maximum 2704`. The constraint moves onto a stored generated `content_md5`, which keeps the guarantee and drops the ceiling. One revision on top of the dimension one; the DAO's content lookups compare the digest first so they still ride an index. |
 
-The first three are written to be upstreamable as they are; opening that PR is a
-separate decision and has not been taken. Everything below them is ours to keep.
+The three `feat:` commits and the `fix:` commit are written to be upstreamable as
+they are; opening that PR is a separate decision and has not been taken. The `ci:`
+and `docs:` commits are ours to keep.
+
+⚠ The `fix:` sits **after** the `ci:` and `docs:` commits rather than with the other
+upstreamable work, because it was appended instead of inserted — rewriting `custom`
+to slot it in was not worth a force-push on its own. Move it up at the next rebase,
+which rewrites the stack anyway.
 
 The CI work sits last on purpose, so workflow conflicts stay in one place. It was
 two commits until 2026-08-29 and is now one — same for the docs, which were also
@@ -59,4 +66,7 @@ outright. Container tags cannot contain `+`, so the published image ends up as
 Files this stack touches — a conflict here means the rebase needs attention:
 `src/memlord/config.py`, `src/memlord/embeddings.py`, `src/memlord/models/memory.py`,
 `src/memlord/search.py`, `src/memlord/dao/memory.py`, `docker-entrypoint.sh`,
-`.github/workflows/ci.yml`.
+`.github/workflows/ci.yml`, `tests/test_long_content.py`.
+
+⚠ `src/memlord/models/memory.py` is touched by two commits in this stack (the
+embedding dimension and the content digest), so it is the likeliest conflict.
