@@ -124,6 +124,10 @@ class MemoryDao:
 
         memory_id = await self._s.scalar(
             select(Memory.id).where(
+                # Digest first so the lookup rides the unique index; the literal
+                # comparison stays as the collision guard, and both are needed
+                # because the index is on the digest, not on the text.
+                Memory.content_md5 == sa.func.md5(content),
                 Memory.content == content,
                 Memory.workspace_id == workspace_id,
             )
@@ -293,7 +297,10 @@ class MemoryDao:
         duplicate = await self._s.scalar(
             select(Memory.id).where(
                 sa.or_(
-                    Memory.content == row["content"],
+                    sa.and_(
+                        Memory.content_md5 == sa.func.md5(row["content"]),
+                        Memory.content == row["content"],
+                    ),
                     Memory.name == row["name"],
                 ),
                 Memory.workspace_id == to_workspace_id,
